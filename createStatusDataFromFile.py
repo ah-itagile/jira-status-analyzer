@@ -14,17 +14,23 @@ STATUSES = [
 
 class IssueStatusHistory:
     """Encapsulates the status history for an issue."""
-    def __init__(self, issue_id):
+    def __init__(self, issue_id, issue_type):
         self.issue_id = issue_id
+        self.issue_type = issue_type        
         # Each status change now includes the status, change date, and time spent (initially 0)
         self.status_changes = []
+        self.first_final_state = ""  # New field to store the first occurrence of a final state
 
     def add_status_change(self, new_status, change_date):
         """Adds a status change to the history with initial time spent set to 0."""
         self.status_changes.append((new_status, change_date, 0))  # Time spent is initially 0
 
     def to_csv_lines(self):
-        return [self.aggregate_changedates_into_one_line()]
+        """Converts the status changes to CSV lines."""
+        # Aggregate the changes into one line
+        aggregated_line = self.aggregate_changedates_into_one_line()
+        # Add the issue type beneath the issue ID
+        return [aggregated_line]
         """Converts the status changes to CSV lines."""
         return [
             f"{self.issue_id},{new_status},{change_date},{time_spent}"
@@ -32,6 +38,9 @@ class IssueStatusHistory:
         ]
     def aggregate_changedates_into_one_line(self):
         """Aggregates the changes for one issue into a single line."""
+        # Define final statuses
+        final_statuses = {"Done", "Closed"}
+
         # Create a dictionary to store the first change date for each status
         status_dates = {status: "" for status in STATUSES}
 
@@ -40,8 +49,14 @@ class IssueStatusHistory:
             if new_status in status_dates and not status_dates[new_status]:
                 status_dates[new_status] = change_date
 
+            # Check if the status is a final state and update first_final_state
+            if new_status in final_statuses:
+                if not self.first_final_state or datetime.strptime(change_date, "%Y-%m-%dT%H:%M:%S.%f%z") < datetime.strptime(self.first_final_state, "%Y-%m-%dT%H:%M:%S.%f%z"):
+                    self.first_final_state = change_date
+
+
         # Build the output line
-        aggregated_line = [self.issue_id] + [status_dates[status] for status in STATUSES]
+        aggregated_line = [self.issue_id, self.issue_type, self.first_final_state] + [status_dates[status] for status in STATUSES]
         return ",".join(aggregated_line)
 
 
@@ -87,16 +102,18 @@ def calculate_status_timespans(issue_histories):
             
             print(f"  Status: {new_status}, Date: {change_date}, Time Spent: {time_spent} seconds")
 
+
 def extract_status_changes(issues):
     """Extracts status changes from issue changelogs."""
     issue_histories = {}
 
     for issue in issues.get("issues", []):
         issue_id = issue["key"]
+        issue_type = issue.get("fields", {}).get("issuetype", {}).get("name", "Unknown")  # Extract issue type
 
         # Check if the issue already exists in the dictionary
         if issue_id not in issue_histories:
-            issue_histories[issue_id] = IssueStatusHistory(issue_id)
+            issue_histories[issue_id] = IssueStatusHistory(issue_id, issue_type)
 
         issue_history = issue_histories[issue_id]
 
@@ -125,7 +142,7 @@ def main():
 
     # Save to file
     with open(OUTPUT_CSV_FILE, "w") as file:
-        header = ["Issue-id"] + STATUSES
+        header = ["Issue-id", "Issue-type", "First final state"] + STATUSES
         file.write(",".join(header) + "\n")
         file.write("\n".join(status_changes))
 
