@@ -1,8 +1,16 @@
 import json
+from datetime import datetime
 
 # Input JSON file containing Jira issues
 INPUT_JSON_FILE = "issues.json"
 OUTPUT_CSV_FILE = "status_changes.csv"
+
+# Define the order of statuses as a constant
+STATUSES = [
+    "Neu", "Specification", "Ready for development",
+    "In Progress", "Re-Work", "In Code Review", "Approval", "Done", "Closed"
+]
+
 
 class IssueStatusHistory:
     """Encapsulates the status history for an issue."""
@@ -16,11 +24,25 @@ class IssueStatusHistory:
         self.status_changes.append((new_status, change_date, 0))  # Time spent is initially 0
 
     def to_csv_lines(self):
+        return [self.aggregate_changedates_into_one_line()]
         """Converts the status changes to CSV lines."""
         return [
             f"{self.issue_id},{new_status},{change_date},{time_spent}"
             for new_status, change_date, time_spent in self.status_changes
         ]
+    def aggregate_changedates_into_one_line(self):
+        """Aggregates the changes for one issue into a single line."""
+        # Create a dictionary to store the first change date for each status
+        status_dates = {status: "" for status in STATUSES}
+
+        # Populate the dictionary with the first occurrence of each status
+        for new_status, change_date, _ in self.status_changes:
+            if new_status in status_dates and not status_dates[new_status]:
+                status_dates[new_status] = change_date
+
+        # Build the output line
+        aggregated_line = [self.issue_id] + [status_dates[status] for status in STATUSES]
+        return ",".join(aggregated_line)
 
 
 def load_issues_from_file(filename):
@@ -34,6 +56,36 @@ def load_issues_from_file(filename):
     except json.JSONDecodeError:
         print(f"Error: Failed to parse JSON from '{filename}'.")
         return None
+
+def calculate_status_timespans(issue_histories):
+    """Iterates over all issues in the issue_histories dictionary and calculates time spent for each status change."""
+    for issue_id, issue_history in issue_histories.items():
+        print(f"Issue ID: {issue_id}")
+        
+        # Sort status changes by change_date to ensure chronological order
+        issue_history.status_changes.sort(key=lambda x: x[1])
+        
+        for i, status_change in enumerate(issue_history.status_changes):
+            new_status, change_date, _ = status_change
+            
+            # Parse the change_date into a datetime object
+            current_date = datetime.strptime(change_date, "%Y-%m-%dT%H:%M:%S.%f%z")
+            
+            # Check if there is a next status change
+            if i + 1 < len(issue_history.status_changes):
+                next_change_date = datetime.strptime(
+                    issue_history.status_changes[i + 1][1], "%Y-%m-%dT%H:%M:%S.%f%z"
+                )
+                # Calculate the time difference in seconds
+                time_spent = (next_change_date - current_date).total_seconds()
+            else:
+                # If it's the last status change, set time_spent to 0
+                time_spent = 0
+            
+            # Update the status change with the calculated time_spent
+            issue_history.status_changes[i] = (new_status, change_date, time_spent)
+            
+            print(f"  Status: {new_status}, Date: {change_date}, Time Spent: {time_spent} seconds")
 
 def extract_status_changes(issues):
     """Extracts status changes from issue changelogs."""
@@ -55,6 +107,8 @@ def extract_status_changes(issues):
                     change_date = history["created"]
                     issue_history.add_status_change(new_status, change_date)
 
+    calculate_status_timespans(issue_histories)
+
     # Flatten the histories into CSV lines
     status_changes = []
     for issue_history in issue_histories.values():
@@ -71,7 +125,8 @@ def main():
 
     # Save to file
     with open(OUTPUT_CSV_FILE, "w") as file:
-        file.write("Issue-id,new status,date\n")
+        header = ["Issue-id"] + STATUSES
+        file.write(",".join(header) + "\n")
         file.write("\n".join(status_changes))
 
     print(f"Status changes exported to '{OUTPUT_CSV_FILE}'")
