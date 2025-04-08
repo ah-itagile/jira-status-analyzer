@@ -13,6 +13,7 @@ STATUSES = [
 FINAL_STATUSES = {"Done", "Closed"}
 
 
+
 class IssueStatusHistory:
     """Encapsulates the status history for an issue."""
     def __init__(self, issue_id, issue_type):
@@ -55,9 +56,20 @@ class IssueStatusHistory:
                     self.first_final_state = change_date
 
 
+        # Format the dates to "YYYY-MM-DD HH:MM:SS"
+        formatted_first_final_state = self.format_date(self.first_final_state)
+        formatted_status_dates = [self.format_date(status_dates[status]) for status in STATUSES]
+
         # Build the output line
-        aggregated_line = [self.issue_id, self.issue_type, self.first_final_state] + [status_dates[status] for status in STATUSES]
+        aggregated_line = [self.issue_id, self.issue_type, formatted_first_final_state] + formatted_status_dates
         return ",".join(aggregated_line)
+    
+    @staticmethod
+    def format_date(date_str):
+        """Formats a date string from ISO 8601 to 'YYYY-MM-DD HH:MM:SS'."""
+        if not date_str:
+            return ""
+        return datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%f%z").strftime("%Y-%m-%d %H:%M:%S")
 
 
 def load_issues_from_file(filename):
