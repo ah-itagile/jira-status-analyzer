@@ -10,6 +10,7 @@ STATUSES = [
     "Neu", "Specification", "Ready for development",
     "In Progress", "Re-Work", "In Code Review", "Approval", "Done", "Closed"
 ]
+FINAL_STATUSES = {"Done", "Closed"}
 
 
 class IssueStatusHistory:
@@ -39,7 +40,6 @@ class IssueStatusHistory:
     def aggregate_changedates_into_one_line(self):
         """Aggregates the changes for one issue into a single line."""
         # Define final statuses
-        final_statuses = {"Done", "Closed"}
 
         # Create a dictionary to store the first change date for each status
         status_dates = {status: "" for status in STATUSES}
@@ -50,7 +50,7 @@ class IssueStatusHistory:
                 status_dates[new_status] = change_date
 
             # Check if the status is a final state and update first_final_state
-            if new_status in final_statuses:
+            if new_status in FINAL_STATUSES:
                 if not self.first_final_state or datetime.strptime(change_date, "%Y-%m-%dT%H:%M:%S.%f%z") < datetime.strptime(self.first_final_state, "%Y-%m-%dT%H:%M:%S.%f%z"):
                     self.first_final_state = change_date
 
