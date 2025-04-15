@@ -10,7 +10,6 @@ API_TOKEN = "your-api-token"
 # API URL with JQL to filter issues updated in the last 6 months
 JQL_QUERY = "updated>=-26w"
 API_URL = f"{JIRA_INSTANCE}/rest/agile/1.0/board/{BOARD_ID}/issue"
-#GET https://brunata.atlassian.net/rest/agile/1.0/board/28/issue?jql=updated>=-26w&expand=changelog&startAt=0&maxResults=100
 
 # Headers for authentication
 HEADERS = {

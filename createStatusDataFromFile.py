@@ -33,14 +33,9 @@ class IssueStatusHistory:
         aggregated_line = self.aggregate_changedates_into_one_line()
         # Add the issue type beneath the issue ID
         return [aggregated_line]
-        """Converts the status changes to CSV lines."""
-        return [
-            f"{self.issue_id},{new_status},{change_date},{time_spent}"
-            for new_status, change_date, time_spent in self.status_changes
-        ]
+
     def aggregate_changedates_into_one_line(self):
         """Aggregates the changes for one issue into a single line."""
-        # Define final statuses
 
         # Create a dictionary to store the first change date for each status
         status_dates = {status: "" for status in STATUSES}
